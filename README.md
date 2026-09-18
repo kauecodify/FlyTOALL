@@ -538,6 +538,57 @@ A visão de longo prazo é transformar o FLYTOALL em uma plataforma de **intelig
 
 ---
 
+# Como o FLYTOALL funciona
+
+O FLYTOALL possui uma arquitetura cliente-servidor.
+
+O `index.html` representa a camada de interface do usuário (Frontend).
+O `app.py` representa o Backend responsável pelo processamento dos dados,
+Machine Learning, APIs e comunicação em tempo real.
+
+A comunicação ocorre da seguinte forma:
+
+```text
+Usuário
+   ↓
+index.html
+HTML + CSS + JavaScript
+   ↓
+HTTP / REST / WebSocket
+   ↓
+app.py
+FastAPI
+   ↓
+Pandas + NumPy + Scikit-learn
+   ↓
+Análise dos dados
+   ↓
+Regressão Linear
+   ↓
+Forecast
+   ↓
+Resultado enviado ao Frontend
+   ↓
+Dashboard atualizado
+
+```
+
+Execução
+
+FLYTOALL deve ser executado através do servidor FastAPI:
+
+uvicorn app:app --reload > powershell
+
+Depois disso, o navegador acessa:
+
+http://127.0.0.1:8000
+
+O FastAPI entrega a interface HTML e mantém o Backend Python funcionando.
+
+Abrir o index.html diretamente no navegador não representa a execução completa do FLYTOALL, pois as funcionalidades que dependem do Backend precisam do servidor Python.
+
+---
+
 # Status
 
 **Current Stage:** SaaS Prototype
