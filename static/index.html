@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>FLYTOALL — Real-Time Spreadsheet AI</title>
+        <style>
+              *{box-sizing:border-box}body{margin:0;background:#06101c;color:#eaf3fa;font:14px Inter,Segoe UI,Arial}
+              header{height:72px;padding:0 28px;display:flex;align-items:center;justify-content:space-between;background:#081725;border-bottom:1px solid #19334d;position:sticky;top:0;z-index:10}
+              .brand{font-size:22px;font-weight:800;letter-spacing:.04em}.live{color:#7de2a8}.shell{display:grid;grid-template-columns:280px 1fr;min-height:calc(100vh - 72px)}
+              aside{padding:22px;border-right:1px solid #19334d;background:#091827}.main{padding:22px;overflow:auto}
+              h2{margin:0 0 8px}.muted{color:#8ea5ba;font-size:12px;line-height:1.5}
+              button,.file{border:1px solid #2b4c68;background:#10253a;color:#eaf3fa;padding:10px 13px;border-radius:9px;cursor:pointer;width:100%;margin:5px 0}
+              button:hover,.file:hover{background:#15324b}.primary{background:#17425a}.danger{background:#2c2020}
+              input[type=file]{display:none}.target{display:flex;align-items:center;gap:8px;padding:7px 0;color:#bcd0df}.target input{accent-color:#62d6ff}
+              .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}.card{background:#0b1b2b;border:1px solid #19334d;border-radius:13px;padding:16px}.label{color:#8ea5ba;text-transform:uppercase;font-size:10px;letter-spacing:.1em}.value{font-size:22px;font-weight:700;margin-top:7px}
+              .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px}.toolbar button{width:auto}.table-wrap{background:#0a1928;border:1px solid #19334d;border-radius:13px;overflow:auto;max-height:62vh}
+              table{border-collapse:collapse;min-width:900px;width:100%}th,td{border-bottom:1px solid #183149;border-right:1px solid #183149;padding:0}th{height:40px;background:#0d2235;position:sticky;top:0;z-index:3;text-align:left;padding:0 10px;font-size:12px}
+              td input{width:100%;min-width:120px;background:transparent;border:0;color:#eaf3fa;padding:10px;outline:none}td input:focus{background:#102a40;box-shadow:inset 0 -2px #62d6ff}
+              .pred{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:14px}.predcard{background:#0b1b2b;border:1px solid #19334d;border-radius:13px;padding:14px}.forecast{font-size:12px;color:#bcd0df;line-height:1.7}
+              @media(max-width:900px){.shell{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid #19334d}.kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:500px){.kpis{grid-template-columns:1fr}}
+        </style>
+  </head>
+  <body>
+    <header><div class="brand">FLYTOALL</div><div class="live">● LIVE <span
+          id="updated" class="muted"></span></div></header>
+    <div class="shell">
+      <aside>
+        <h2>Data Workspace</h2><p class="muted">Gerencie uma planilha em tempo
+          real e selecione as colunas-alvo para previsão.</p>
+        <label class="file">Importar CSV / Excel<input id="file" type="file"
+            accept=".csv,.xlsx,.xls"></label>
+        <button class="primary" onclick="addRow()">+ Nova linha</button>
+        <button onclick="addColumn()">+ Nova coluna</button>
+        <button onclick="exportCsv()">Exportar CSV</button>
+        <hr style="border-color:#19334d;border-width:1px 0 0;margin:18px 0">
+        <div class="label">Colunas-alvo</div>
+        <div id="targets"></div>
+        <p class="muted">Cada alteração de célula recalcula automaticamente o
+          modelo e sincroniza os usuários conectados.</p>
+      </aside>
+      <main class="main">
+        <div class="kpis">
+          <div class="card"><div class="label">Linhas</div><div id="rows"
+              class="value">0</div></div>
+          <div class="card"><div class="label">Colunas</div><div id="cols"
+              class="value">0</div></div>
+          <div class="card"><div class="label">Alvos</div><div id="targetCount"
+              class="value">0</div></div>
+          <div class="card"><div class="label">Status</div><div id="status"
+              class="value">LIVE</div></div>
+        </div>
+        <div class="toolbar"><strong>Planilha em tempo real</strong></div>
+        <div class="table-wrap"><table><thead id="thead"></thead><tbody
+              id="tbody"></tbody></table></div>
+        <section><h3>Previsão das colunas-alvo</h3><div id="predictions"
+            class="pred"></div></section>
+      </main>
+    </div>
+        <script>
+          let state={columns:[],rows:[],targets:[],predictions:{}};
+          let timer=null;
+          const ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");
+          ws.onopen=()=>ws.send("subscribe");
+          ws.onmessage=e=>{const p=JSON.parse(e.data);if(p.type==="state"){state=p;render()}};
+
+          function render(){
+          document.getElementById("rows").textContent=state.rows.length;
+          document.getElementById("cols").textContent=state.columns.length;
+          document.getElementById("targetCount").textContent=state.targets.length;
+          document.getElementById("updated").textContent=state.updated_at?new Date(state.updated_at).toLocaleTimeString():"";
+          const th=document.getElementById("thead"),tb=document.getElementById("tbody");
+          th.innerHTML="<tr><th>#</th>"+state.columns.map(c=>`<th>${escapeHtml(c)}</th>`).join("")+"</tr>";
+          tb.innerHTML=state.rows.map((row,i)=>"<tr><td style='padding:10px;color:#718ba0'>"+(i+1)+"</td>"+state.columns.map(c=>`<td><input value="${escapeAttr(row[c]??"")}" onchange="cell(${i},'${escapeJs(c)}',this.value)"></td>`).join("")+"</tr>").join("");
+          document.getElementById("targets").innerHTML=state.columns.map(c=>`<label class="target"><input type="checkbox" ${state.targets.includes(c)?"checked":""} onchange="toggleTarget('${escapeJs(c)}',this.checked)"> ${escapeHtml(c)}</label>`).join("");
+          document.getElementById("predictions").innerHTML=Object.entries(state.predictions||{}).map(([target,p])=>{
+            if(p.status!=="ok")return `<div class="predcard"><b>${escapeHtml(target)}</b><p class="muted">Dados insuficientes</p></div>`;
+            return `<div class="predcard"><b>${escapeHtml(target)}</b><p class="muted">R²: ${p.r2} · tendência: ${p.slope}</p><div>Último: <b>${p.last}</b></div><div class="forecast">Próximos pontos: ${p.forecast.join(" · ")}</div></div>`;
+          }).join("") || "<div class='muted'>Selecione pelo menos uma coluna-alvo.</div>";
+          }
+          async function post(url,data={}){await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)})}
+          async function cell(row,column,value){clearTimeout(timer);timer=setTimeout(()=>post("/api/cell",{row,column,value}),120)}
+          async function toggleTarget(column,checked){
+          const targets=[...state.targets]; if(checked&&!targets.includes(column))targets.push(column); if(!checked)targets.splice(targets.indexOf(column),1); await post("/api/targets",{targets});
+          }
+          async function addRow(){await post("/api/add-row")}
+          async function addColumn(){const c=prompt("Nome da nova coluna:");if(c)await post("/api/add-column",{column:c})}
+          function exportCsv(){location.href="/api/export"}
+          document.getElementById("file").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const fd=new FormData();fd.append("file",f);await fetch("/api/upload",{method:"POST",body:fd})});
+          function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+          function escapeAttr(s){return escapeHtml(s)}
+          function escapeJs(s){return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'")}
+        </script>
+  </body>
+</html>
